@@ -56,7 +56,7 @@ public class DataAccess
     }
     public int AddUser(Users user)
     {
-        var query = "INSERT INTO users ( id,password, email,active) VALUES (@id, @password, @email,0)";
+        var query = "INSERT INTO users ( password, email,active,created) VALUES ( @password, @email,0,@created)";
         return Execute(query, user);
     }
     // Các phương thức thực hiện các tác vụ thêm, sửa, xóa dữ liệu khác...

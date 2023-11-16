@@ -1,8 +1,11 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using StackExchange.Redis;
+using System.ComponentModel.DataAnnotations;
 using System.Data.SqlClient;
 using System.Reflection;
+using System.Reflection.Metadata;
+using System.Text.RegularExpressions;
 using thu3.Model;
 using Thu6.model;
 
@@ -12,6 +15,7 @@ namespace thu3.Controllers.Auth
     [ApiController]
     public class AccountController : ControllerBase
     {
+        private const int V = 0;
         private readonly IConfiguration _Configuration;
         private readonly ConnectionMultiplexer _configRedis;
         public AccountController(IConfiguration config, IConfiguration redis)
@@ -40,7 +44,17 @@ namespace thu3.Controllers.Auth
             }
             return Ok(new { values,k });
         }
-      
+        [HttpGet("rm")]
+        public ActionResult rm( string key)
+        {
+            var redisDatabase = _configRedis.GetDatabase();
+
+            var keys = _configRedis.GetServer("localhost", 6379).Keys();
+            redisDatabase.KeyDelete(key);
+           
+            return Ok(getAllKeyValue());
+        }
+
 
         [HttpPost]
         [Route("Signup")]
@@ -50,7 +64,7 @@ namespace thu3.Controllers.Auth
             {
                 IDatabase redisDatabase = _configRedis.GetDatabase();
                 CryptoHelper f = new CryptoHelper();
-                string id = f.GenerateRandomId();
+              
                 var dataAccess = new DataAccess(_Configuration);
                 var existingUser = dataAccess.Query<Users>("select * from Users where email=@Email", new {model.Email}).FirstOrDefault();
                 if (existingUser != null)
@@ -62,12 +76,13 @@ namespace thu3.Controllers.Auth
                         data =new { }
                     });
                 }
-                redisDatabase.StringSet("devtoken: " + id, model.Uuid);
+                redisDatabase.StringSet("devtoken: " + model.Email, model.Uuid);
                 var newUser = new Users
                 {
-                    id = id,
+                   
                     email = model.Email,
-                    password = model.Password
+                    password = model.Password,
+                    created = DateTime.Now,
                 };
                 var result = dataAccess.AddUser(newUser);
                 if (result > 0)
@@ -103,76 +118,73 @@ namespace thu3.Controllers.Auth
         }
 
 
-
         [HttpPost]
         [Route("Login")]
         public IActionResult Login(LoginModel model)
         {
             try
             {
-               
-
-
                 IDatabase redisDatabase = _configRedis.GetDatabase();
-                CryptoHelper f = new CryptoHelper();
-               
+                CryptoHelper cryptoHelper = new CryptoHelper();
                 var dataAccess = new DataAccess(_Configuration);
-                var user = dataAccess.Query<Users>("select * from Users where email=@email and password=@password", new { model.email,model.password }).FirstOrDefault();
-                if (user.active.Equals("0"))
+
+                var user = dataAccess.Query<Users>("SELECT * FROM Users WHERE email = @email AND password = @password", new { model.email, model.password }).FirstOrDefault();
+
+                if (user == null)
                 {
                     return BadRequest(new
                     {
-                     code=0,
-                     message="User is not Acitve"
+                        code = 9995,
+                        message = "User is not validated"
                     });
                 }
-                var oldDevToken = redisDatabase.StringGet("devtoken: " + user.id);
-                if(user != null )
+                
+                if (user.active == 0)
                 {
-                 
-                  
-                    if(oldDevToken != model.devtoken)
+                    return BadRequest(new
                     {
-                        redisDatabase.KeyDelete("devtoken: " + user.id);
-                        redisDatabase.StringSet("devtoken: " + user.id, model.devtoken);
-                        
+                        code = 0,
+                        message = "User is not Active"
+                    });
+                }
+
+                var oldDevToken = redisDatabase.StringGet("devtoken: " + model.email);
+                if (oldDevToken != model.devtoken)
+                {
+                    redisDatabase.KeyDelete("devtoken: " + user.email);
+                    redisDatabase.StringSet("devtoken: " + user.email, model.devtoken);
+                }
+
+                var idLogin = user.id;
+                var token = cryptoHelper.Encrypt(idLogin.ToString(), "tokenlogin123456");
+
+                dataAccess.Query<Users>(@"UPDATE users 
+                                   SET token = @token
+                                   WHERE email = @email", new { token, user.email });
+
+                return Ok(new
+                {
+                    code = 1000,
+                    message = "Ok",
+                    data = new
+                    {
+                        user.id,
+                        user.usename,
+                        token,
+                        avata = user.link_avata,
+                        user.active,
+                        user.coins
                     }
-                    CryptoHelper cryptoHelper = new CryptoHelper();
-                    var id_login = user.id;
-                    var token =cryptoHelper.Encrypt(id_login, "tokenlogin123456");
-                    dataAccess.Query<Users>(@" update users 
-                                                set token=@token
-                                                where id=@id", new {token=token,id=user.id});
-
-                    return Ok(new
-                    {
-                        code=1000,
-                        message="Ok",
-                        data = new {
-                            user.id,user.username,token,avata=user.link_avata,user.active,user.coins
-                        }
-                    });
-                }
-                else
-                {
-                return BadRequest(new
-                {
-                    code=9995,
-                    message="User is not validated"
                 });
-
-                }
-
-
             }
             catch (Exception ex)
             {
-                return BadRequest(ex.Message);
+                // Log the exception for debugging purposes
+                Console.WriteLine(ex);
+                return BadRequest("An error occurred");
             }
-
-
-
         }
+
 
         [HttpPost]
         [Route("Logout")]
@@ -191,7 +203,7 @@ namespace thu3.Controllers.Auth
                    });
                 }
                 string newtoken = "";
-                dataAccess.Query<Users>("update users set token=@token where id=@id", new { a.id ,token=newtoken});
+                dataAccess.Query<Users>("update users set token=@token where email=@email", new { a.email ,token=newtoken});
 
                 return Ok(new
                 {
@@ -214,8 +226,8 @@ namespace thu3.Controllers.Auth
 
 
         [HttpPost]
-        [Route("check")]
-        public IActionResult get_verify_code(string email)
+        [Route("get_varify_code")]
+        public IActionResult get_verify_code([EmailAddress][Required]string email)
         {
 
             try
@@ -224,7 +236,8 @@ namespace thu3.Controllers.Auth
             DataAccess dataAccess = new DataAccess(_Configuration);
             CryptoHelper cryptoHelper = new CryptoHelper();
             IDatabase redisDatabase = _configRedis.GetDatabase();
-            var user=dataAccess.Query<Users>("select* from users where email=@email",new {email});
+
+            var user=dataAccess.Query<Users>("select* from users where email=@email",new {email}).FirstOrDefault();
             if(user == null)
             {
                 return BadRequest(new
@@ -233,18 +246,32 @@ namespace thu3.Controllers.Auth
                     message = "email chua duoc dang ky"
                 });
             }
-            var a=cryptoHelper.GenerateRandomId();
-            var code = cryptoHelper.Encrypt(a, "1234567891234567");
-            redisDatabase.StringSet(a,email);
-                return Ok(new
+                else
                 {
-                    code = 1000,
-                    message = "Ok",
-                    data = new
+
+                if (user.active==1){
+                
+                        return Ok(new
+                        {
+                            code=199999,
+                            message="user is actived"
+                        });
+                   }
+            
+                 var keyId=cryptoHelper.GenerateRandomId();
+                var token = cryptoHelper.Encrypt(keyId, "1234567891234567");
+                redisDatabase.StringSet(email + ": " + keyId,token);
+
+                return Ok(new
                     {
-                        code_verify = a
-                    }
-                }) ;
+                        code = 1000,
+                        message = "Ok",
+                        data = new
+                        {
+                        code_verify = token
+                        }
+                    }) ;
+                }
             }catch(Exception ex)
             {
                 return BadRequest(ex.Message);
@@ -253,7 +280,171 @@ namespace thu3.Controllers.Auth
 
         }
 
-       
+
+        [HttpPost]
+        [Route("check_verify_code")]
+        public IActionResult check_verify_code([EmailAddress]string email,[FromHeader]string token )
+        {
+            try
+            {
+                DataAccess dataAccess = new DataAccess(_Configuration);
+                CryptoHelper cryptoHelper = new CryptoHelper();
+                IDatabase redisDatabase = _configRedis.GetDatabase();
+                var keyId = cryptoHelper.Decrypt(token, "1234567891234567");
+                var b = redisDatabase.StringGet(email + ": " + keyId);
+                var user=dataAccess.Query<Users>("select * from users where email=@email",new{email }).FirstOrDefault();
+                if(user == null)
+                {
+                    return Ok(new
+                    {
+                        code=9995,
+                        message="User is not validated"
+                    });
+                }
+                 if (user.active.Equals("1") )
+                {
+                    return Ok(new
+                    {
+                        code = 9996,
+                        message = "User existed"
+                    });
+                }
+                 if (!b.Equals(token))
+                {
+                    return Ok(new
+                    {
+                        code=1004,
+                        message="Parameter value is invalid"
+                    });
+                }
+                 if(user.active.Equals("0")&& token.Equals("")) {
+
+                    return Ok(new
+                    {
+                        code=1002,
+                        message="Parameter is not enought"
+                    });
+                }
+                var id=cryptoHelper.GenerateRandomId();
+                dataAccess.Query<Users>("update users set id=@id, active=1 where email=@email", new { id ,email});
+                redisDatabase.KeyDelete(email + ": " + keyId);
+
+                return Ok(new
+                {
+
+                    code=1000,
+                    message="Ok",
+                    data = new
+                    {
+                        id,active="1"
+                    }
+                });
+            }catch(Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+
+        }
+
+        [HttpPost]
+        [Route("Change_infor_after_sigup")]
+        public async Task<IActionResult> Change_infor_after_sigup([FromHeader] string token, [Required] string username, IFormFile? avatar)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(token))
+                {
+                    return BadRequest(new
+                    {
+                        code = 1004,
+                        message = "Parameter value is invalid"
+                    });
+                }
+
+                IDatabase redisDatabase = _configRedis.GetDatabase();
+                CryptoHelper cryptoHelper = new CryptoHelper();
+                var dataAccess = new DataAccess(_Configuration);
+
+                Users user = dataAccess.Query<Users>("select * from users where token=@token", new { token }).FirstOrDefault();
+                if (user == null)
+                {
+                    return BadRequest(new
+                    {
+                        code = 500,
+                        message = "Token is invalid"
+                    });
+                }
+
+                if (user.email == username)
+                {
+                    return BadRequest(new
+                    {
+                        code = 1004,
+                        message = "Cannot match the user's email"
+                    });
+                }
+
+                if (Regex.IsMatch(username, "[^a-zA-Z0-9]"))
+                {
+                    return BadRequest(new
+                    {
+                        code = 1004,
+                        message = "Username cannot contain special characters, links, emails, or addresses"
+                    });
+                }
+
+                if (!(username.Length >= 3 && username.Length <= 20))
+                {
+                    return BadRequest(new
+                    {
+                        code = 1004,
+                        message = "Username must be between 3 and 20 characters long"
+                    });
+                }
+
+                // Handle the avatar file
+                byte[] avatarData = null;
+
+                if (avatar != null && avatar.Length > 0)
+                {
+                    using (var memoryStream = new MemoryStream())
+                    {
+                        await avatar.CopyToAsync(memoryStream);
+                        avatarData = memoryStream.ToArray();
+                    }
+                }
+
+                // Update user information, including the avatar path
+                byte[] linkAvata = avatarData == null ? user.link_avata : avatarData;
+
+                dataAccess.Query<Users>("update users set usename=@username, link_avata=@linkAvata where id=@id", new { username, linkAvata, user.id });
+
+                // Return the updated user data
+                var updatedUser = dataAccess.Query<Users>("select * from users where id=@id", new { user.id }).FirstOrDefault();
+
+                return Ok(new
+                {
+                    code = 1000,
+                    message = "OK",
+                    data = new
+                    {
+                        updatedUser.id,
+                        updatedUser.usename,
+                        updatedUser.email,
+                        updatedUser.created,
+                        updatedUser.link_avata
+                    },
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+
+
+
 
     }
 }
