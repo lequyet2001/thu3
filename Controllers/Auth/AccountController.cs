@@ -15,7 +15,7 @@ namespace thu3.Controllers.Auth
     [ApiController]
     public class AccountController : ControllerBase
     {
-        private const int V = 0;
+        private const long MaxFileSize = 30 * 1024 * 1024;
         private readonly IConfiguration _Configuration;
         private readonly ConnectionMultiplexer _configRedis;
         public AccountController(IConfiguration config, IConfiguration redis)
@@ -71,7 +71,7 @@ namespace thu3.Controllers.Auth
                 {
                     return BadRequest(new
                     {
-                        Status = 9996,
+                        Code = "9996",
                         Message = "User existed",
                         data =new { }
                     });
@@ -89,7 +89,7 @@ namespace thu3.Controllers.Auth
                 {
                     return Ok(new
                     {
-                        Status = 1000,
+                        Code = "1000",
 
                         Message = "Ok",
                         Data = dataAccess.Query<Users>("SELECT * FROM users WHERE email = @Email", new { model.Email }).FirstOrDefault(),
@@ -99,7 +99,7 @@ namespace thu3.Controllers.Auth
                 {
                     return BadRequest(new
                     {
-                        Status = 500,
+                        Code = "500",
                         Message = "Signup Falled"
                     });
                 }
@@ -107,11 +107,11 @@ namespace thu3.Controllers.Auth
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new
+                return BadRequest( new
                 {
                     error =ex.Source ,
                     ex.Message,
-                    status = 500
+                    Code = "500"
                 });
             }
            
@@ -134,7 +134,7 @@ namespace thu3.Controllers.Auth
                 {
                     return BadRequest(new
                     {
-                        code = 9995,
+                        Code = "9995",
                         message = "User is not validated"
                     });
                 }
@@ -143,7 +143,7 @@ namespace thu3.Controllers.Auth
                 {
                     return BadRequest(new
                     {
-                        code = 0,
+                        Code = "0",
                         message = "User is not Active"
                     });
                 }
@@ -164,7 +164,7 @@ namespace thu3.Controllers.Auth
 
                 return Ok(new
                 {
-                    code = 1000,
+                    Code = "1000",
                     message = "Ok",
                     data = new
                     {
@@ -198,7 +198,7 @@ namespace thu3.Controllers.Auth
                 {
                    return Ok(new
                    {
-                       code= 500,
+                       Code = "500",
                        message="user was logout or invalid"
                    });
                 }
@@ -207,7 +207,7 @@ namespace thu3.Controllers.Auth
 
                 return Ok(new
                 {
-                    code=1000,
+                    Code = "1000",
                     message="Logout success"
                 });
                 
@@ -226,8 +226,8 @@ namespace thu3.Controllers.Auth
 
 
         [HttpPost]
-        [Route("get_varify_code")]
-        public IActionResult get_verify_code([EmailAddress][Required]string email)
+        [Route("get_varify_Code")]
+        public IActionResult get_verify_Code([EmailAddress][Required]string email)
         {
 
             try
@@ -242,7 +242,7 @@ namespace thu3.Controllers.Auth
             {
                 return BadRequest(new
                 {
-                    code = 500,
+                    Code = "500",
                     message = "email chua duoc dang ky"
                 });
             }
@@ -253,7 +253,7 @@ namespace thu3.Controllers.Auth
                 
                         return Ok(new
                         {
-                            code=199999,
+                            Code = "2999",
                             message="user is actived"
                         });
                    }
@@ -264,11 +264,11 @@ namespace thu3.Controllers.Auth
 
                 return Ok(new
                     {
-                        code = 1000,
+                    Code = "1000",
                         message = "Ok",
                         data = new
                         {
-                        code_verify = token
+                        Code_verify = token
                         }
                     }) ;
                 }
@@ -282,8 +282,8 @@ namespace thu3.Controllers.Auth
 
 
         [HttpPost]
-        [Route("check_verify_code")]
-        public IActionResult check_verify_code([EmailAddress]string email,[FromHeader]string token )
+        [Route("check_verify_Code")]
+        public IActionResult check_verify_Code([EmailAddress]string email,[FromHeader]string token )
         {
             try
             {
@@ -297,7 +297,7 @@ namespace thu3.Controllers.Auth
                 {
                     return Ok(new
                     {
-                        code=9995,
+                        Code = "9995",
                         message="User is not validated"
                     });
                 }
@@ -305,7 +305,7 @@ namespace thu3.Controllers.Auth
                 {
                     return Ok(new
                     {
-                        code = 9996,
+                        Code = "9996",
                         message = "User existed"
                     });
                 }
@@ -313,7 +313,7 @@ namespace thu3.Controllers.Auth
                 {
                     return Ok(new
                     {
-                        code=1004,
+                        Code = "1004",
                         message="Parameter value is invalid"
                     });
                 }
@@ -321,7 +321,7 @@ namespace thu3.Controllers.Auth
 
                     return Ok(new
                     {
-                        code=1002,
+                        Code = "1002",
                         message="Parameter is not enought"
                     });
                 }
@@ -332,7 +332,7 @@ namespace thu3.Controllers.Auth
                 return Ok(new
                 {
 
-                    code=1000,
+                    Code = "1000",
                     message="Ok",
                     data = new
                     {
@@ -352,15 +352,27 @@ namespace thu3.Controllers.Auth
         {
             try
             {
+
                 if (string.IsNullOrEmpty(token))
                 {
                     return BadRequest(new
                     {
-                        code = 1004,
+                        Code = "1004",
                         message = "Parameter value is invalid"
                     });
                 }
 
+                if(avatar!=null && avatar.Length > 0)
+                {
+                    if(avatar.Length> MaxFileSize)
+                    {
+                        return BadRequest(new
+                        {
+                            Code="1006",
+                            message="File size is too big"
+                        });
+                    }
+                }
                 IDatabase redisDatabase = _configRedis.GetDatabase();
                 CryptoHelper cryptoHelper = new CryptoHelper();
                 var dataAccess = new DataAccess(_Configuration);
@@ -370,7 +382,7 @@ namespace thu3.Controllers.Auth
                 {
                     return BadRequest(new
                     {
-                        code = 500,
+                        Code = "500",
                         message = "Token is invalid"
                     });
                 }
@@ -379,7 +391,7 @@ namespace thu3.Controllers.Auth
                 {
                     return BadRequest(new
                     {
-                        code = 1004,
+                        Code = "1004",
                         message = "Cannot match the user's email"
                     });
                 }
@@ -388,7 +400,7 @@ namespace thu3.Controllers.Auth
                 {
                     return BadRequest(new
                     {
-                        code = 1004,
+                        Code = "1004",
                         message = "Username cannot contain special characters, links, emails, or addresses"
                     });
                 }
@@ -397,7 +409,7 @@ namespace thu3.Controllers.Auth
                 {
                     return BadRequest(new
                     {
-                        code = 1004,
+                        Code = "1004",
                         message = "Username must be between 3 and 20 characters long"
                     });
                 }
@@ -413,9 +425,12 @@ namespace thu3.Controllers.Auth
                         avatarData = memoryStream.ToArray();
                     }
                 }
+                string base64String = avatarData != null ? Convert.ToBase64String(avatarData) : null;
 
                 // Update user information, including the avatar path
-                byte[] linkAvata = avatarData == null ? user.link_avata : avatarData;
+                string linkAvata = base64String ?? user.link_avata;
+
+
 
                 dataAccess.Query<Users>("update users set usename=@username, link_avata=@linkAvata where id=@id", new { username, linkAvata, user.id });
 
@@ -424,7 +439,7 @@ namespace thu3.Controllers.Auth
 
                 return Ok(new
                 {
-                    code = 1000,
+                    Code = "1000",
                     message = "OK",
                     data = new
                     {
