@@ -11,6 +11,7 @@
     <PackageReference Include="Dapper.Contrib" Version="2.0.78" />
     <PackageReference Include="Dapper.SqlBuilder" Version="2.0.78" />
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.19.5" />
+    <PackageReference Include="OpenAI" Version="1.10.0" />
     <PackageReference Include="StackExchange.Redis" Version="2.7.4" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
     <PackageReference Include="System.Data.SqlClient" Version="4.8.5" />
@@ -18,6 +19,10 @@
 
   <ItemGroup>
     <Folder Include="p\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Model\Comment.cs" />
   </ItemGroup>
 
 </Project>

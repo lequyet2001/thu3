@@ -22,9 +22,13 @@ namespace Thu6.model
         public int coins {  get; set; } 
         public DateTime created { get; set; }
         public string banned { get; set; }=string.Empty;
-
-/*
-        public DateTime Created_at { get; set; }
+        public string description { get; set; }=string.Empty;
+        public string address { get; set; }=string.Empty;
+        public string country { get; set; }=string.Empty;
+        public string city { get; set; }=string.Empty;
+        public string link { get; set; }=string.Empty;
+        public string cover_image { get; set; }=string.Empty;
+/*        public DateTime Created_at { get; set; }
 
         public DateTime Modified_at { get; set;}*/
     }

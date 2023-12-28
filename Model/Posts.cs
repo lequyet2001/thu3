@@ -23,7 +23,7 @@ namespace thu3.Model
         public string state { get; set; } = string.Empty;
         public int is_blocked { get; set; }
         public Boolean can_edit { get; set; } = false;
-     
+        public int comments { get; set; } = 0;
         public int banned { get; set; } 
         public int can_mark { get; set; } = 1;
         public int can_rate { get; set; } = 1;
@@ -45,6 +45,7 @@ namespace thu3.Model
             properties.Add("Modified", modified.ToString());
             properties.Add("Fake", fake.ToString());
             properties.Add("Trust", trust.ToString());
+            properties.Add(nameof(comments), comments.ToString());
             properties.Add("Kudos", kudos.ToString());
             properties.Add("Disappointed", disappointed.ToString());
             properties.Add("Author",author.ConvertToDictionary());
