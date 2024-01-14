@@ -16,7 +16,7 @@
 
 ## Tạo database
  
-  - (https://github.com/lequyet2001/thu3/blob/master/SQL.sql)
+  - [File sql](https://github.com/lequyet2001/thu3/blob/master/SQL.sql)
  
 ## Clone dự project 
  ```
