@@ -11,11 +11,14 @@
 2. Start server:
    ```bash
    sudo service redis-server start
+   
 ## Sửa file appsettings.json:
+
    ```json
     "ConnectionStrings": {
        "db": "connect your string with sql server",
        "Redis": "localhost:6379"
    }
-## Chạy dự án
+   ```end
+qe
 
