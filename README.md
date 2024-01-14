@@ -12,7 +12,7 @@
    ```bash
    sudo service redis-server start
 ## Sửa file appsettings.json
-   ```text
+   ```json
  "ConnectionStrings": {
     "db": "connect your string with sql server",
     "Redis": "localhost:6379"}
