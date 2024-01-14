@@ -14,15 +14,18 @@
    sudo service redis-server start
    ```
 
+## Tạo database
+ 
+  - (https://github.com/lequyet2001/thu3/blob/master/SQL.sql)
+ 
 ## Clone dự project 
  ```
     git clone https://github.com/lequyet2001/thu3.git
  ```
 
-### Mở file 
-  ```
-  thu3.sln
-  ```
+### Mở file thu3.sln để mở dự án trên visual studio
+* <a style="color:blue; text-decoration:none;">  [thu3.sln](https://github.com/lequyet2001/thu3/blob/master/thu3.sln)</a>
+ 
 ### Sửa file appsettings.json
 
   ```
@@ -32,4 +35,6 @@
        "Redis": "localhost:6379"
     }
   ```
+
+  
 
